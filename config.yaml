@@ -3,18 +3,19 @@ create_user:
   users:
     - id: user_1
       name: Name Lastname
+      group: EvmGroup-super_administrator
   default_password: default_pass
 create_tenant:
   tenants:
     - name: Test
       description: 'Test Project'
-      parent: 1
+      parent: DefaultTenantName
     - name: Test2
       description: 'Test Project2'
-      parent: 1
+      parent: DefaultTenantName
 create_groups:
   groups:
     - name: CRFGroup-admin_self_service
       role: EvmRole-user_self_service
-      tenantid: 1
+      tenant: DefaultTenantName
       tags: '""'

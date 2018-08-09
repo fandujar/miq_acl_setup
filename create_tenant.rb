@@ -1,41 +1,32 @@
 #!/usr/bin/env ruby
 
-require 'yaml'
 require 'openssl'
 require 'uri'
 require 'net/http'
 
 
-config = YAML.load_file('config.yaml')
-
-ENDPOINT  = config['endpoint']
-API_CREATE_TENANT = "%{endpoint}/api/tenants/" % { :endpoint => ENDPOINT}
-API_GET_TENANT_ID = "%{endpoint}/api/tenants/?filter[]=name=%27%{tenant_name}%27&expand=resources&attributes=id"
-JSON = '{"name":"%{name}","description":"%{description}","parent":{"id":"%{parent}"}}'
-HEADER = {'Content-Type': 'application/json'}
-
-
-tenants = config['create_tenant']['tenants']
-DEFAULT_TENANT = config['create_tenant']['default_tenant']
-
-
-OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
+#config = YAML.load_file('config.yaml')
+#ENDPOINT  = config['endpoint']
+#API_GET_TENANT_ID = "%{endpoint}/api/tenants?expand=resources"
 
 def edit_default_tenant()
+    #TODO
     puts "Blz"
-
 end
 
 def create_tenant(tenant)
+    json_tenant = '{"name":"%{name}","description":"%{description}","parent":{"id":"%{parent}"}}'
+    api_create_tenant = "%{endpoint}/api/tenants/" % { :endpoint => ENDPOINT}
+
     puts "Creating new tenant..."
     puts "Tenant #{tenant['name']}, description #{tenant['description']}, parent #{tenant['parent']}"
-    json_tenant = JSON % {:name => tenant['name'], :description => tenant['description'], :parent => tenant['parent']}
-    uri = URI.parse(API_CREATE_TENANT)
+    body = json_tenant % {:name => tenant['name'], :description => tenant['description'], :parent => get_tenantid_byname(tenant['parent'])}
+    uri = URI.parse(api_create_tenant)
 
     response = Net::HTTP.start(uri.host, uri.port,:use_ssl => uri.scheme == 'https') do |http|
         request = Net::HTTP::Post.new(uri.request_uri, HEADER)
         request.basic_auth('admin','smartvm')
-        request.body = json_tenant
+        request.body = body
         puts request.body
         http.request(request)
     end
@@ -43,21 +34,20 @@ def create_tenant(tenant)
     puts response.body
 end
 
-def get_parent(tenant)
-    if tenant['parent'] == DEFAULT_TENANT['name']
-        return 1
-    else
-        return tenant['parent']
+def get_tenantid_byname(name)
+    puts "Getting tenant id by name #{name}"
+    api_get_tenants = "%{endpoint}/api/tenants?expand=resources" % { :endpoint => ENDPOINT}
+    uri = URI.parse(api_get_tenants)
+    response = Net::HTTP.start(uri.host, uri.port,:use_ssl => uri.scheme == 'https') do |http|
+        request = Net::HTTP::Get.new(uri.request_uri, HEADER)
+        request.basic_auth('admin','smartvm')
+        http.request(request)
     end
+
+    for p in JSON.parse(response.body)['resources']
+        if name == p['name']
+            return p['id'].to_i
+        end
+    end
+    return 0
 end
-
-# TODO - Aceitar tenant pelo nome
-
-#edit_default_tenant()
-
-for tenant in tenants
-#    tenant['parent'] = get_parent(tenant)
-#    puts tenant['parent']
-    create_tenant(tenant)
-end
-
